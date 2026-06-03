@@ -135,9 +135,9 @@ def get_llm(api_key: Optional[str] = None):
         return _LLM_CACHE[effective_key]
     
     llm = ChatGroq(
-        model_name="llama-3.3-70b-versatile", 
+        model="llama-3.3-70b-versatile", 
         temperature=0,
-        groq_api_key=effective_key
+        api_key=effective_key
     )
     _LLM_CACHE[effective_key] = llm
     return llm

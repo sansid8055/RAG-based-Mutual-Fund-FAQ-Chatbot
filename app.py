@@ -1,5 +1,6 @@
 import streamlit as st
 import os
+import traceback
 from backend.engine.rag_chain import Phase4RAG
 from dotenv import load_dotenv
 
@@ -276,8 +277,11 @@ if user_input:
                 })
                 
             except Exception as e:
-                error_msg = f"⚠️ Error: {str(e)}"
+                tb = traceback.format_exc()
+                error_msg = f"⚠️ Error: {repr(e)}"
                 st.error(error_msg)
+                with st.expander("View full traceback"):
+                    st.code(tb)
                 st.session_state.messages.append({
                     "role": "assistant",
                     "content": error_msg
