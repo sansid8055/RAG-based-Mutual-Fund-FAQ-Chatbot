@@ -1,5 +1,9 @@
-import streamlit as st
 import os
+# Disable OpenTelemetry to avoid protobuf version conflicts with chromadb
+os.environ["OTEL_SDK_DISABLED"] = "true"
+os.environ["CHROMA_OTEL_ENABLED"] = "false"
+
+import streamlit as st
 import traceback
 from backend.engine.rag_chain import Phase4RAG
 from dotenv import load_dotenv

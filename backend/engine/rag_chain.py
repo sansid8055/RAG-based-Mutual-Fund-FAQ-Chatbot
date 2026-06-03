@@ -48,12 +48,24 @@ def get_embeddings():
 
 
 def _is_vector_db_ready() -> bool:
+    """Check if vector DB directory exists, has files, AND is loadable by chromadb."""
     if not os.path.isdir(DB_DIR):
+        print(f"  [DB check] Directory missing: {DB_DIR}")
         return False
     try:
         with os.scandir(DB_DIR) as it:
-            return any(True for _ in it)
-    except FileNotFoundError:
+            has_files = any(True for _ in it)
+        if not has_files:
+            print(f"  [DB check] Directory empty: {DB_DIR}")
+            return False
+        # Actually try to load the DB to verify chromadb compatibility
+        embeddings = get_embeddings()
+        test_vs = Chroma(persist_directory=DB_DIR, embedding_function=embeddings)
+        count = test_vs._collection.count()
+        print(f"  [DB check] ChromaDB loaded successfully with {count} documents")
+        return count > 0
+    except Exception as e:
+        print(f"  [DB check] ChromaDB load failed (possible version mismatch): {e}")
         return False
 
 
@@ -61,7 +73,7 @@ def ensure_vector_db() -> bool:
     """Ensure persisted Chroma DB exists; build it if missing.
     
     Returns True if the database is ready, False otherwise.
-    Will attempt automatic ingestion if the database is missing.
+    Will attempt automatic ingestion if the database is missing or incompatible.
     """
     global _VECTOR_DB_READY
     if _VECTOR_DB_READY and _is_vector_db_ready():
@@ -72,15 +84,32 @@ def ensure_vector_db() -> bool:
             _VECTOR_DB_READY = True
             return True
 
-        # Attempt automatic build if missing
+        # Attempt automatic build if missing or incompatible
         try:
-            print("🏗️ Vector database missing. Attempting automatic ingestion...")
+            print("\n" + "="*60)
+            print("🏗️  Vector database missing or incompatible. Attempting automatic ingestion...")
+            print(f"    DB_DIR: {DB_DIR}")
+            print(f"    Files present: {os.listdir(DB_DIR) if os.path.isdir(DB_DIR) else 'DIR NOT FOUND'}")
+            print("="*60)
+            
+            # Clear old DB if it exists but is incompatible
+            import shutil
+            if os.path.isdir(DB_DIR):
+                print(f"🧹 Clearing incompatible vector database...")
+                shutil.rmtree(DB_DIR, ignore_errors=True)
+            
             from backend.data.ingest import ingest_docs
             ingest_docs()
             _VECTOR_DB_READY = _is_vector_db_ready()
+            if _VECTOR_DB_READY:
+                print("✅ Vector database rebuilt successfully!")
+            else:
+                print("❌ Vector database rebuild failed - no documents ingested.")
             return _VECTOR_DB_READY
         except Exception as e:
+            import traceback
             print(f"❌ Automatic ingestion failed: {e}")
+            print(traceback.format_exc())
             return False
 
 # Official HDFC Scheme Page Mapping
@@ -146,7 +175,14 @@ def get_rag_chain(scheme_filter=None, api_key: Optional[str] = None):
     """Create a RAG chain using modern langchain API (no deprecated chains)."""
     global _VECTORSTORE_CACHE
     if not ensure_vector_db():
-        raise FileNotFoundError("Vector database not found. Please run ingestion first.")
+        dir_info = f"dir_exists={os.path.isdir(DB_DIR)}"
+        if os.path.isdir(DB_DIR):
+            dir_info += f", files={os.listdir(DB_DIR)}"
+        raise FileNotFoundError(
+            f"Vector database not found or incompatible. {dir_info}. "
+            "Check Streamlit logs above for [DB check] messages. "
+            "Use the 'Rebuild Database' button in the sidebar."
+        )
         
     embeddings = get_embeddings()
     
