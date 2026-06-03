@@ -1,11 +1,13 @@
 langchain>=1,<2
 langchain-core>=1,<2
 langchain-openai
-langchain-chroma
+langchain-chroma>=0.2.0
 langchain-groq
 langchain-huggingface
 langchain-community
 langchain-text-splitters
+chromadb>=0.5.0,<1.0.0
+protobuf>=4.25.0,<5.0.0
 pypdf
 python-dotenv
 fastapi
